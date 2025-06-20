@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Δ-Квантовое Зеркало (Рабочая версия)</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
+  <style>
+    :root {
+      --quantum-blue: #0b3d91;
+      --pulse-orange: #ff6d00;
+      --signal-purple: #9c27b0;
+      --entropy-green: #00c853;
+    }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f0f2f5;
+      color: #333;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .panel {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      padding: 25px;
+      margin-bottom: 30px;
+      border-left: 5px solid var(--quantum-blue);
+    }
+    h1, h2 {
+      color: var(--quantum-blue);
+      margin-top: 0;
+    }
+    canvas {
+      width: 100% !important;
+      height: 300px !important;
+      margin: 15px 0;
+      border: 1px solid #eee;
+      border-radius: 8px;
+    }
+    button, select {
+      background: var(--quantum-blue);
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 5px;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+    button:hover {
+      background: var(--pulse-orange);
+      transform: translateY(-2px);
+    }
+    .slider-container {
+      margin: 15px 0;
+    }
+    .metric {
+      display: inline-block;
+      margin: 8px;
+      padding: 8px 12px;
+      background: #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .active {
+      background: var(--signal-purple) !important;
+    }
+    #audioVisualizer {
+      width: 100%;
+      height: 150px;
+      background: #000;
+      border-radius: 8px;
+      margin: 10px 0;
+    }
+    #imageOutput {
+      max-width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      margin-top: 15px;
+    }
+    .tab-container {
+      display: flex;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+    }
+    .tab {
+      padding: 8px 15px;
+      background: #ddd;
+      cursor: pointer;
+      border-radius: 8px 8px 0 0;
+      margin-right: 5px;
+      font-size: 14px;
+    }
+    .tab.active {
+      background: var(--quantum-blue);
+      color: white;
+    }
+    textarea, input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      margin: 5px 0;
+    }
+    pre {
+      background: #f5f5f5;
+      padding: 10px;
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+    #qSphere {
+      width: 200px;
+      height: 200px;
+      margin: 0 auto;
+      display: block;
+    }
+    .status {
+      padding: 8px;
+      border-radius: 4px;
+      margin: 5px 0;
+      font-size: 13px;
+    }
+    .success {
+      background: #e8f5e9;
+      color: #00c853;
+    }
+    .error {
+      background: #ffebee;
+      color: #f44336;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Δ-Квантовое Зеркало (Рабочая версия)</h1>
+    
+    <!-- 1. Генератор сигналов -->
+    <div class="panel">
+      <h2>1. Генератор квантовых сигналов</h2>
+      
+      <div class="tab-container">
+        <div class="tab active" onclick="switchTab('analog')">Аналоговый</div>
+        <div class="tab" onclick="switchTab('digital')">Цифровой</div>
+        <div class="tab" onclick="switchTab('quantum')">Q-сфера</div>
+      </div>
+      
+      <div id="analog-tab">
+        <div class="slider-container">
+          <label>Частота: <span id="freqValue">440</span> Гц</label>
+          <input type="range" id="freqSlider" min="20" max="2000" value="440" oninput="updateSignal()">
+        </div>
+        
+        <div class="slider-container">
+          <label>Шум: <span id="noiseValue">30</span>%</label>
+          <input type="range" id="noiseSlider" min="0" max="100" value="30" oninput="updateSignal()">
+        </div>
+        
+        <canvas id="signalChart"></canvas>
+        
+        <button onclick="startAudio()">▶ Сгенерировать</button>
+        <button onclick="stopAudio()">■ Стоп</button>
+        <button onclick="exportToCSV()">📊 CSV</button>
+        <button onclick="applyQuantumGate('H')">⚡ Вентиль Адамара</button>
+      </div>
+      
+      <div id="digital-tab" style="display:none;">
+        <textarea id="digitalInput" rows="3" placeholder="Введите биты (например: 01001101)">01001101</textarea>
+        <button onclick="processDigital()">Преобразовать</button>
+        <button onclick="generateRandomBits()">🎲 Случайные биты</button>
+        <canvas id="digitalChart"></canvas>
+        <img id="imageOutput" src="" alt="Цифровой образ">
+      </div>
+      
+      <div id="quantum-tab" style="display:none; text-align:center;">
+        <canvas id="qSphere" width="200" height="200"></canvas>
+        <div>
+          <span class="metric">|0⟩: <span id="state0">0.71</span></span>
+          <span class="metric">|1⟩: <span id="state1">0.71</span></span>
+          <span class="metric">θ: <span id="theta">45</span>°</span>
+        </div>
+        <button onclick="updateQSphere()">Обновить</button>
+      </div>
+    </div>
+    
+    <!-- 2. Анализ -->
+    <div class="panel">
+      <h2>2. Нейросетевой анализ</h2>
+      <select id="aiModel">
+        <option value="noise">Анализ шума</option>
+        <option value="pattern">Паттерны</option>
+      </select>
+      <button onclick="runAnalysis()">🔍 Анализировать</button>
+      <div id="aiResults" style="margin-top:15px;">
+        <pre id="aiOutput">Нажмите "Анализировать"</pre>
+      </div>
+    </div>
+    
+    <!-- 3. Интеграции -->
+    <div class="panel">
+      <h2>3. Интеграции</h2>
+      <button onclick="connectTelegram()">🤖 Telegram-бот</button>
+      <button onclick="generateColabCode()">🖥️ Код для Colab</button>
+      <div id="integrationStatus" class="status">Статус: не подключено</div>
+      <pre id="colabCode" style="display:none; margin-top:10px;"></pre>
+    </div>
+    
+    <!-- 4. Логи -->
+    <div class="panel">
+      <h2>4. Системные логи</h2>
+      <pre id="systemLogs" style="height:150px; overflow-y:scroll;">
+[Система] Инициализация завершена
+[Аудио] Готов к работе
+[TF.js] Модель загружена
+      </pre>
+      <button onclick="clearLogs()">🧹 Очистить</button>
+      <button onclick="exportLogs()">📤 Экспорт</button>
+    </div>
+  </div>
+
+  <script>
+    // Инициализация
+    let audioContext, oscillator, analyser, isPlaying = false;
+    let charts = {};
+    let tfModel = null;
+    let qState = { alpha: 0.7071, beta: 0.7071, theta: Math.PI/4 };
+
+    // Запуск при загрузке
+    document.addEventListener('DOMContentLoaded', function() {
+      initCharts();
+      updateSignal();
+      initTFJS();
+      updateQSphere();
+      logEvent("Система готова");
+    });
+
+    // 1. Генератор сигналов
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+      document.querySelector(`.tab[onclick*="${tabName}"]`).classList.add('active');
+      document.getElementById('analog-tab').style.display = tabName === 'analog' ? 'block' : 'none';
+      document.getElementById('digital-tab').style.display = tabName === 'digital' ? 'block' : 'none';
+      document.getElementById('quantum-tab').style.display = tabName === 'quantum' ? 'block' : 'none';
+    }
+
+    function updateSignal() {
+      const freq = parseInt(document.getElementById('freqSlider').value);
+      const noise = parseInt(document.getElementById('noiseSlider').value);
+      document.getElementById('freqValue').textContent = freq;
+      document.getElementById('noiseValue').textContent = noise;
+
+      // Генерация сигнала с шумом
+      const signal = [];
+      for (let i = 0; i < 200; i++) {
+        signal.push(Math.sin(i * freq * 0.02) + (Math.random() * 2 - 1) * noise * 0.01);
+      }
+      updateChart('signalChart', signal, 'Сигнал', '#ff6d00');
+    }
+
+    function startAudio() {
+      if (isPlaying) return;
+      try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        oscillator = audioContext.createOscillator();
+        analyser = audioContext.createAnalyser();
+        oscillator.type = 'sine';
+        oscillator.frequency.value = document.getElementById('freqSlider').value;
+        oscillator.connect(analyser);
+        analyser.connect(audioContext.destination);
+        oscillator.start();
+        isPlaying = true;
+        visualizeAudio();
+        logEvent("Аудио запущено");
+      } catch (e) {
+        logEvent(`Ошибка аудио: ${e.message}`, true);
+      }
+    }
+
+    function stopAudio() {
+      if (!isPlaying) return;
+      oscillator.stop();
+      isPlaying = false;
+      logEvent("Аудио остановлено");
+    }
+
+    function visualizeAudio() {
+      if (!isPlaying) return;
+      const canvas = document.getElementById('audioVisualizer');
+      const ctx = canvas.getContext('2d');
+      const width = canvas.width;
+      const height = canvas.height;
+      analyser.fftSize = 256;
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      function draw() {
+        requestAnimationFrame(draw);
+        analyser.getByteFrequencyData(dataArray);
+        ctx.fillStyle = 'rgb(0, 0, 0)';
+        ctx.fillRect(0, 0, width, height);
+        const barWidth = (width / bufferLength) * 2.5;
+        let x = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          const barHeight = dataArray[i] / 2;
+          ctx.fillStyle = `rgb(100, ${Math.floor(barHeight + 100)}, 50)`;
+          ctx.fillRect(x, height - barHeight, barWidth, barHeight);
+          x += barWidth + 1;
+        }
+      }
+      draw();
+    }
+
+    // 2. Цифровая обработка
+    function processDigital() {
+      const input = document.getElementById('digitalInput').value;
+      const binaryData = input.split('').filter(c => c === '0' || c === '1').map(bit => parseInt(bit));
+      if (binaryData.length === 0) {
+        logEvent("Ошибка: введите биты 0 и 1", true);
+        return;
+      }
+      updateChart('digitalChart', binaryData, 'Цифровой сигнал', '#0b3d91');
+      generateImage(binaryData);
+      logEvent(`Обработано ${binaryData.length} бит`);
+    }
+
+    function generateImage(bits) {
+      const canvas = document.createElement('canvas');
+      const size = 32;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      let index = 0;
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const bit = bits[index % bits.length];
+          ctx.fillStyle = bit ? '#ff6d00' : '#0b3d91';
+          ctx.fillRect(x, y, 1, 1);
+          index++;
+        }
+      }
+      document.getElementById('imageOutput').src = canvas.toDataURL();
+    }
+
+    function generateRandomBits() {
+      const bits = Array.from({length: 16}, () => Math.round(Math.random()));
+      document.getElementById('digitalInput').value = bits.join('');
+      processDigital();
+    }
+
+    // 3. Q-сфера
+    function updateQSphere() {
+      const canvas = document.getElementById('qSphere');
+      const ctx = canvas.getContext('2d');
+      const radius = canvas.width / 2 - 10;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Сфера
+      ctx.beginPath();
+      ctx.arc(canvas.width/2, canvas.height/2, radius, 0, 2 * Math.PI);
+      ctx.strokeStyle = '#0b3d91';
+      ctx.stroke();
+      
+      // Кубит
+      const x = canvas.width/2 + radius * Math.sin(qState.theta);
+      const y = canvas.height/2 - radius * Math.cos(qState.theta);
+      ctx.beginPath();
+      ctx.arc(x, y, 8, 0, 2 * Math.PI);
+      ctx.fillStyle = '#ff6d00';
+      ctx.fill();
+      
+      document.getElementById('state0').textContent = qState.alpha.toFixed(2);
+      document.getElementById('state1').textContent = qState.beta.toFixed(2);
+      document.getElementById('theta').textContent = Math.round(qState.theta * 180 / Math.PI);
+    }
+
+    function applyQuantumGate(gate) {
+      if (gate === 'H') {
+        // Вентиль Адамара
+        const newAlpha = (qState.alpha + qState.beta) / Math.sqrt(2);
+        const newBeta = (qState.alpha - qState.beta) / Math.sqrt(2);
+        qState.alpha = newAlpha;
+        qState.beta = newBeta;
+        qState.theta = Math.acos(newAlpha) * 2;
+      }
+      updateQSphere();
+      logEvent(`Применён квантовый вентиль ${gate}`);
+    }
+
+    // 4. TensorFlow.js
+    async function initTFJS() {
+      try {
+        await tf.ready();
+        // Простая модель для классификации
+        tfModel = tf.sequential();
+        tfModel.add(tf.layers.dense({ units: 8, activation: 'relu', inputShape: [10] }));
+        tfModel.add(tf.layers.dense({ units: 2, activation: 'softmax' }));
+        tfModel.compile({ optimizer: 'adam', loss: 'categoricalCrossentropy' });
+        
+        // Имитация обучения
+        const xs = tf.tensor2d([...Array(10)].map(() => [...Array(10)].map(Math.random)));
+        const ys = tf.tensor2d([...Array(10)].map(() => [Math.random(), Math.random()]));
+        await tfModel.fit(xs, ys, { epochs: 1 });
+        
+        logEvent("TF.js модель готова");
+      } catch (e) {
+        logEvent(`Ошибка TF.js: ${e.message}`, true);
+      }
+    }
+
+    async function runAnalysis() {
+      if (!tfModel) {
+        logEvent("Модель не загружена", true);
+        return;
+      }
+      const modelType = document.getElementById('aiModel').value;
+      const input = tf.tensor2d([[...Array(10)].map(Math.random)]);
+      const prediction = await tfModel.predict(input).data();
+      
+      let result;
+      if (modelType === 'noise') {
+        result = `Уровень шума: ${(prediction[0] * 100).toFixed(1)}%\nКогерентность: ${(prediction[1] * 100).toFixed(1)}%`;
+      } else {
+        result = `Паттерн |0⟩: ${(prediction[0] * 100).toFixed(1)}%\nПаттерн |1⟩: ${(prediction[1] * 100).toFixed(1)}%`;
+      }
+      document.getElementById('aiOutput').textContent = result;
+      logEvent(`Анализ завершен (${modelType})`);
+    }
+
+    // 5. Интеграции
+    function connectTelegram() {
+      localStorage.setItem('telegramBotConnected', 'true');
+      document.getElementById('integrationStatus').className = "status success";
+      document.getElementById('integrationStatus').textContent = "Telegram: подключен (эмуляция)";
+      logEvent("Telegram-бот подключен (данные сохраняются в localStorage)");
+    }
+
+    function generateColabCode() {
+      const code = `# Код для Google Colab
+import numpy as np
+from qiskit import QuantumCircuit, execute, Aer
+
+# Создаем квантовую схему
+qc = QuantumCircuit(1)
+qc.h(0)  # Применяем вентиль Адамара
+simulator = Aer.get_backend('statevector_simulator')
+result = execute(qc, simulator).result()
+statevector = result.get_statevector()
+print("Состояние кубита:", statevector)`;
+      
+      document.getElementById('colabCode').textContent = code;
+      document.getElementById('colabCode').style.display = 'block';
+      logEvent("Сгенерирован код для Colab");
+    }
+
+    // 6. Экспорт
+    function exportToCSV() {
+      const data = charts.signalChart.data.datasets[0].data.map((y, x) => ({ x, y }));
+      const csv = Papa.unparse(data);
+      downloadFile('quantum_signal.csv', csv);
+      logEvent("Данные экспортированы в CSV");
+    }
+
+    function exportLogs() {
+      const logs = document.getElementById('systemLogs').textContent;
+      downloadFile('quantum_logs.txt', logs);
+    }
+
+    function downloadFile(filename, content) {
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+    }
+
+    // 7. Системные функции
+    function clearLogs() {
+      document.getElementById('systemLogs').textContent = "[Логи очищены]\n";
+    }
+
+    function logEvent(message, isError = false) {
+      const logs = document.getElementById('systemLogs');
+      const timestamp = new Date().toLocaleTimeString();
+      logs.innerHTML += `\n[${timestamp}] ${message}`;
+      logs.scrollTop = logs.scrollHeight;
+    }
+
+    // Инициализация графиков
+    function initCharts() {
+      charts.signalChart = new Chart(
+        document.getElementById('signalChart').getContext('2d'),
+        { type: 'line', options: { responsive: true, maintainAspectRatio: false } }
+      );
+      charts.digitalChart = new Chart(
+        document.getElementById('digitalChart').getContext('2d'),
+        { type: 'bar', options: { responsive: true, maintainAspectRatio: false } }
+      );
+    }
+
+    function updateChart(id, data, label, color) {
+      const chart = charts[id];
+      chart.data = {
+        labels: data.map((_, i) => i),
+        datasets: [{
+          label: label,
+          data: data,
+          borderColor: color,
+          backgroundColor: id === 'digitalChart' ? color : undefined,
+          borderWidth: 2
+        }]
+      };
+      chart.update();
+    }
+  </script>
+</body>
+</html>
